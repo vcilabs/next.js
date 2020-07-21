@@ -16,6 +16,7 @@ export { DocumentContext, DocumentInitialProps, DocumentProps }
 export type OriginProps = {
   nonce?: string
   crossOrigin?: string
+  dynamicAssetPrefix?: string
 }
 
 function dedupe(bundles: any[]): any[] {
@@ -128,6 +129,7 @@ export class Head extends Component<
   static propTypes = {
     nonce: PropTypes.string,
     crossOrigin: PropTypes.string,
+    dynamicAssetPrefix: PropTypes.string,
   }
 
   context!: React.ContextType<typeof DocumentComponentContext>
@@ -135,8 +137,10 @@ export class Head extends Component<
   getCssLinks(): JSX.Element[] | null {
     const { assetPrefix, files } = this.context._documentProps
     const { _devOnlyInvalidateCacheQueryString } = this.context
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
     const cssFiles =
       files && files.length ? files.filter((f) => f.endsWith('.css')) : []
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     const cssLinkElements: JSX.Element[] = []
     cssFiles.forEach((file) => {
@@ -145,24 +149,20 @@ export class Head extends Component<
           key={`${file}-preload`}
           nonce={this.props.nonce}
           rel="preload"
-          href={`${assetPrefix}/_next/${encodeURI(
+          href={`${prefix}/_next/${encodeURI(
             file
           )}${_devOnlyInvalidateCacheQueryString}`}
           as="style"
-          crossOrigin={
-            this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-          }
+          crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
         />,
         <link
           key={file}
-          nonce={this.props.nonce}
+          nonce={nonce}
           rel="stylesheet"
-          href={`${assetPrefix}/_next/${encodeURI(
+          href={`${prefix}/_next/${encodeURI(
             file
           )}${_devOnlyInvalidateCacheQueryString}`}
-          crossOrigin={
-            this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-          }
+          crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
         />
       )
     })
@@ -173,6 +173,8 @@ export class Head extends Component<
   getPreloadDynamicChunks() {
     const { dynamicImports, assetPrefix } = this.context._documentProps
     const { _devOnlyInvalidateCacheQueryString } = this.context
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     return (
       dedupe(dynamicImports)
@@ -188,14 +190,12 @@ export class Head extends Component<
             <link
               rel="preload"
               key={bundle.file}
-              href={`${assetPrefix}/_next/${encodeURI(
+              href={`${prefix}/_next/${encodeURI(
                 bundle.file
               )}${_devOnlyInvalidateCacheQueryString}`}
               as="script"
-              nonce={this.props.nonce}
-              crossOrigin={
-                this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-              }
+              nonce={nonce}
+              crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
             />
           )
         })
@@ -207,6 +207,8 @@ export class Head extends Component<
   getPreloadMainLinks(): JSX.Element[] | null {
     const { assetPrefix, files } = this.context._documentProps
     const { _devOnlyInvalidateCacheQueryString } = this.context
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     const preloadFiles =
       files && files.length
@@ -223,15 +225,13 @@ export class Head extends Component<
       : preloadFiles.map((file: string) => (
           <link
             key={file}
-            nonce={this.props.nonce}
+            nonce={nonce}
             rel="preload"
-            href={`${assetPrefix}/_next/${encodeURI(
+            href={`${prefix}/_next/${encodeURI(
               file
             )}${_devOnlyInvalidateCacheQueryString}`}
             as="script"
-            crossOrigin={
-              this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-            }
+            crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
           />
         ))
   }
@@ -256,19 +256,10 @@ export class Head extends Component<
     if (process.env.NODE_ENV !== 'production') {
       children = React.Children.map(children, (child: any) => {
         const isReactHelmet = child?.props?.['data-react-helmet']
-        if (!isReactHelmet) {
-          if (child?.type === 'title') {
-            console.warn(
-              "Warning: <title> should not be used in _document.js's <Head>. https://err.sh/next.js/no-document-title"
-            )
-          } else if (
-            child?.type === 'meta' &&
-            child?.props?.name === 'viewport'
-          ) {
-            console.warn(
-              "Warning: viewport meta tags should not be used in _document.js's <Head>. https://err.sh/next.js/no-document-viewport-meta"
-            )
-          }
+        if (child?.type === 'title' && !isReactHelmet) {
+          console.warn(
+            "Warning: <title> should not be used in _document.js's <Head>. https://err.sh/next.js/no-document-title"
+          )
         }
         return child
       })
@@ -350,8 +341,10 @@ export class Head extends Component<
       })
     }
 
+    const { dynamicAssetPrefix, ...newProps } = this.props
+
     return (
-      <head {...this.props}>
+      <head {...newProps}>
         {this.context._documentProps.isDevelopment && (
           <>
             <style
@@ -467,6 +460,7 @@ export class NextScript extends Component<OriginProps> {
   static propTypes = {
     nonce: PropTypes.string,
     crossOrigin: PropTypes.string,
+    dynamicAssetPrefix: PropTypes.string,
   }
 
   context!: React.ContextType<typeof DocumentComponentContext>
@@ -483,6 +477,8 @@ export class NextScript extends Component<OriginProps> {
       isDevelopment,
     } = this.context._documentProps
     const { _devOnlyInvalidateCacheQueryString } = this.context
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     return dedupe(dynamicImports).map((bundle: any) => {
       let modernProps = {}
@@ -499,13 +495,11 @@ export class NextScript extends Component<OriginProps> {
         <script
           async={!isDevelopment}
           key={bundle.file}
-          src={`${assetPrefix}/_next/${encodeURI(
+          src={`${prefix}/_next/${encodeURI(
             bundle.file
           )}${_devOnlyInvalidateCacheQueryString}`}
-          nonce={this.props.nonce}
-          crossOrigin={
-            this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-          }
+          nonce={nonce}
+          crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
           {...modernProps}
         />
       )
@@ -520,6 +514,8 @@ export class NextScript extends Component<OriginProps> {
       isDevelopment,
     } = this.context._documentProps
     const { _devOnlyInvalidateCacheQueryString } = this.context
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     const normalScripts = files?.filter((file) => file.endsWith('.js'))
     const lowPriorityScripts = buildManifest.lowPriorityFiles?.filter((file) =>
@@ -536,14 +532,12 @@ export class NextScript extends Component<OriginProps> {
       return (
         <script
           key={file}
-          src={`${assetPrefix}/_next/${encodeURI(
+          src={`${prefix}/_next/${encodeURI(
             file
           )}${_devOnlyInvalidateCacheQueryString}`}
-          nonce={this.props.nonce}
+          nonce={nonce}
           async={!isDevelopment}
-          crossOrigin={
-            this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-          }
+          crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
           {...modernProps}
         />
       )
@@ -555,6 +549,8 @@ export class NextScript extends Component<OriginProps> {
     // It also has to be the first script to load
     const { assetPrefix, buildManifest } = this.context._documentProps
     const { _devOnlyInvalidateCacheQueryString } = this.context
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     return buildManifest.polyfillFiles
       .filter(
@@ -564,18 +560,22 @@ export class NextScript extends Component<OriginProps> {
       .map((polyfill) => (
         <script
           key={polyfill}
-          nonce={this.props.nonce}
-          crossOrigin={
-            this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-          }
+          nonce={nonce}
+          crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
           noModule={true}
-          src={`${assetPrefix}/_next/${polyfill}${_devOnlyInvalidateCacheQueryString}`}
+          src={`${prefix}/_next/${polyfill}${_devOnlyInvalidateCacheQueryString}`}
         />
       ))
   }
 
-  static getInlineScriptSource(documentProps: DocumentProps): string {
+  static getInlineScriptSource(
+    documentProps: DocumentProps,
+    prefix?: string
+  ): string {
     const { __NEXT_DATA__ } = documentProps
+    // @ts-ignore
+    __NEXT_DATA__.dynamicAssetPrefix = prefix
+
     try {
       const data = JSON.stringify(__NEXT_DATA__)
       return htmlEscapeJsonString(data)
@@ -597,6 +597,8 @@ export class NextScript extends Component<OriginProps> {
       unstable_runtimeJS,
     } = this.context._documentProps
     const disableRuntimeJS = unstable_runtimeJS === false
+    const { dynamicAssetPrefix, crossOrigin, nonce } = this.props
+    const prefix = dynamicAssetPrefix ? dynamicAssetPrefix : assetPrefix
 
     const { _devOnlyInvalidateCacheQueryString } = this.context
 
@@ -616,13 +618,12 @@ export class NextScript extends Component<OriginProps> {
             <script
               id="__NEXT_DATA__"
               type="application/json"
-              nonce={this.props.nonce}
-              crossOrigin={
-                this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-              }
+              nonce={nonce}
+              crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
               dangerouslySetInnerHTML={{
                 __html: NextScript.getInlineScriptSource(
-                  this.context._documentProps
+                  this.context._documentProps,
+                  dynamicAssetPrefix
                 ),
               }}
               data-ampdevmode
@@ -631,11 +632,9 @@ export class NextScript extends Component<OriginProps> {
           {ampDevFiles.map((file) => (
             <script
               key={file}
-              src={`${assetPrefix}/_next/${file}${_devOnlyInvalidateCacheQueryString}`}
-              nonce={this.props.nonce}
-              crossOrigin={
-                this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-              }
+              src={`${prefix}/_next/${file}${_devOnlyInvalidateCacheQueryString}`}
+              nonce={nonce}
+              crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
               data-ampdevmode
             />
           ))}
@@ -644,7 +643,7 @@ export class NextScript extends Component<OriginProps> {
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      if (this.props.crossOrigin)
+      if (crossOrigin)
         console.warn(
           'Warning: `NextScript` attribute `crossOrigin` is deprecated. https://err.sh/next.js/doc-crossorigin-deprecated'
         )
@@ -656,13 +655,11 @@ export class NextScript extends Component<OriginProps> {
           ? buildManifest.devFiles.map((file: string) => (
               <script
                 key={file}
-                src={`${assetPrefix}/_next/${encodeURI(
+                src={`${prefix}/_next/${encodeURI(
                   file
                 )}${_devOnlyInvalidateCacheQueryString}`}
-                nonce={this.props.nonce}
-                crossOrigin={
-                  this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-                }
+                nonce={nonce}
+                crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
               />
             ))
           : null}
@@ -670,23 +667,20 @@ export class NextScript extends Component<OriginProps> {
           <script
             id="__NEXT_DATA__"
             type="application/json"
-            nonce={this.props.nonce}
-            crossOrigin={
-              this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-            }
+            nonce={nonce}
+            crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
             dangerouslySetInnerHTML={{
               __html: NextScript.getInlineScriptSource(
-                this.context._documentProps
+                this.context._documentProps,
+                dynamicAssetPrefix
               ),
             }}
           />
         )}
         {process.env.__NEXT_MODERN_BUILD && !disableRuntimeJS ? (
           <script
-            nonce={this.props.nonce}
-            crossOrigin={
-              this.props.crossOrigin || process.env.__NEXT_CROSS_ORIGIN
-            }
+            nonce={nonce}
+            crossOrigin={crossOrigin || process.env.__NEXT_CROSS_ORIGIN}
             noModule={true}
             dangerouslySetInnerHTML={{
               __html: NextScript.safariNomoduleFix,
